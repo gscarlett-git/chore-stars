@@ -1,4 +1,6 @@
--- Chores App Database Schema
+-- Chore Stars Database Schema
+-- Includes all updates: special_day, target_date on rewards,
+-- expanded frequency ENUM, school_days and weekend support
 
 CREATE DATABASE IF NOT EXISTS choresapp;
 USE choresapp;
@@ -34,7 +36,7 @@ CREATE TABLE IF NOT EXISTS chores (
     title VARCHAR(100) NOT NULL,
     description TEXT,
     points INT DEFAULT 10,
-    frequency ENUM('daily', 'weekly', 'monthly', 'specific_days') DEFAULT 'daily',
+    frequency ENUM('daily', 'school_days', 'weekend', 'monthly', 'specific_days') DEFAULT 'daily',
     days_of_week JSON,
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -63,6 +65,8 @@ CREATE TABLE IF NOT EXISTS rewards (
     description TEXT,
     points_cost INT DEFAULT 50,
     status ENUM('pending', 'approved', 'rejected', 'redeemed') DEFAULT 'pending',
+    special_day VARCHAR(50) DEFAULT NULL,
+    target_date DATE DEFAULT NULL,
     nominated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     approved_at TIMESTAMP NULL,
     redeemed_at TIMESTAMP NULL,
@@ -78,6 +82,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Insert default admin user (password: admin123 - should be changed!)
-INSERT IGNORE INTO users (username, password_hash, role) 
+-- Default admin user
+-- Username: admin  Password: admin123  <-- CHANGE AFTER FIRST LOGIN
+-- To reset password, see SETUP.md troubleshooting section
+INSERT IGNORE INTO users (username, password_hash, role)
 VALUES ('admin', '$2b$10$rBZzl3X.FHhGxJGDnCqrce0IQLZ0VNzNTpfhVRVRzXGVJMjv0vg7.', 'admin');
