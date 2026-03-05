@@ -1,0 +1,78 @@
+services:
+  # =============================================
+  # Chore Stars - Database
+  # =============================================
+  chores-db:
+    container_name: chores-db
+    image: mysql:8.0
+    restart: unless-stopped
+    networks:
+      - t3_proxy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CHORES_DB_ROOT_PASSWORD:-changeme_root}
+      MYSQL_DATABASE: choresapp
+      MYSQL_USER: ${CHORES_DB_USER:-choresuser}
+      MYSQL_PASSWORD: ${CHORES_DB_PASSWORD:-chorespass}
+      TZ: ${TZ}
+    volumes:
+      - ${DOCKERDIR}/appdata/chores/db:/var/lib/mysql
+      - ${DOCKERDIR}/appdata/chores/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${CHORES_DB_ROOT_PASSWORD:-changeme_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=false"
+
+  # =============================================
+  # Chore Stars - Backend API
+  # =============================================
+  chores-backend:
+    container_name: chores-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - t3_proxy
+    depends_on:
+      chores-db:
+        condition: service_healthy
+    environment:
+      - TZ=${TZ}
+      - NODE_ENV=production
+      - DB_HOST=chores-db
+      - DB_USER=${CHORES_DB_USER:-choresuser}
+      - DB_PASSWORD=${CHORES_DB_PASSWORD:-chorespass}
+      - DB_NAME=choresapp
+      - SESSION_SECRET=${CHORES_SESSION_SECRET:-change-this-to-a-random-secret-string}
+      - PORT=3001
+    labels:
+      - "traefik.enable=false"
+
+  # =============================================
+  # Chore Stars - Frontend
+  # =============================================
+  chores-frontend:
+    container_name: chores-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - t3_proxy
+    depends_on:
+      - chores-backend
+    labels:
+      - "traefik.enable=true"
+      # HTTP Router
+      - "traefik.http.routers.chores-rtr.entrypoints=websecure"
+      - "traefik.http.routers.chores-rtr.rule=Host(`chores.${DOMAINNAME_1}`)"
+      - "traefik.http.routers.chores-rtr.tls=true"
+      - "traefik.http.routers.chores-rtr.tls.certresolver=dns-cloudflare"
+      # Service
+      - "traefik.http.routers.chores-rtr.service=chores-svc"
+      - "traefik.http.services.chores-svc.loadbalancer.server.port=8010"
+      # Middleware
+      - "traefik.http.routers.chores-rtr.middlewares=chain-no-auth-internal@file"
